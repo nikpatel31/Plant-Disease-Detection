@@ -11,13 +11,13 @@ import numpy as np
 from sklearn.preprocessing import LabelBinarizer
 
 class dataset:
-    def __init__(self,folder_name,repeat=1,shuffle_buffer_size=1000,batch_size=10,n_parse_threads=2):
+    def __init__(self,folder_name,repeat=1,shuffle_buffer_size=3000,batch_size=16,n_parse_threads=4):
         self.folder_name=folder_name
         self.repeat=repeat
         self.shuffle_buffer_size=shuffle_buffer_size
         self.batch_size=batch_size
         self.n_parse_threads=n_parse_threads
-        self.DATASET_PATH="dataset_itr3/"
+        self.DATASET_PATH="E:/Mini Project/main_dataset_20/"
         #self.classes=os.listdir(os.path.join(self.DATASET_PATH))
         self.classes=os.listdir(self.DATASET_PATH+self.folder_name)
         
@@ -29,6 +29,16 @@ class dataset:
         image/=255
         #image=2*image-1
         return image
+        
+    def test_preprocess(self,image_path_list,label_list_new):
+        image=tf.io.read_file(image_path_list)
+        image=tf.image.decode_jpeg(image,channels=3)
+        #image=tf.image.random_brightness(image,0.3)
+        #image=tf.image.random_flip_left_right(image)
+        #image=tf.image.random_flip_up_down(image)
+        image/=255
+        #image=2*image-1
+        return image,label_list_new
     
     def load_preprocess(self,path):
         image=tf.io.read_file(path)
@@ -65,17 +75,38 @@ class dataset:
         self.image_list()
         self.label_list()
         
-        image_path_ds=tf.data.Dataset.from_tensor_slices(self.image_path_list)
-        label_path_ds=tf.data.Dataset.from_tensor_slices(tf.cast((self.label_list_new),tf.int64))
+        with tf.device('/cpu:0'):
+            image_path_ds=tf.data.Dataset.from_tensor_slices(self.image_path_list)
+            label_path_ds=tf.data.Dataset.from_tensor_slices(tf.cast((self.label_list_new),tf.int64))
     
-        ds=tf.data.Dataset.zip((image_path_ds,label_path_ds))
-        image_label_ds=ds.map(self.preprocess_load_ds,num_parallel_calls=self.n_parse_threads)
+            ds=tf.data.Dataset.zip((image_path_ds,label_path_ds))
+            image_label_ds=ds.map(self.preprocess_load_ds,num_parallel_calls=self.n_parse_threads)
         
         
     
-        ds=image_label_ds.shuffle(buffer_size=self.shuffle_buffer_size)
-        ds=ds.repeat()
-        ds=ds.batch(self.batch_size)
-        ds=ds.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+            ds=image_label_ds.shuffle(buffer_size=self.shuffle_buffer_size)
+            ds=ds.repeat()
+            ds=ds.batch(self.batch_size)
+            ds=ds.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    
+        return(ds)
+        
+    def test_dataset_ready(self):
+        self.image_list()
+        self.label_list()
+        
+        with tf.device('/cpu:0'):
+            image_path_ds=tf.data.Dataset.from_tensor_slices(self.image_path_list)
+            label_path_ds=tf.data.Dataset.from_tensor_slices(tf.cast((self.label_list_new),tf.int64))
+    
+            ds=tf.data.Dataset.zip((image_path_ds,label_path_ds))
+            image_label_ds=ds.map(self.test_preprocess,num_parallel_calls=self.n_parse_threads)
+        
+        
+    
+            ds=image_label_ds.shuffle(buffer_size=self.shuffle_buffer_size)
+            ds=ds.repeat()
+            ds=ds.batch(self.batch_size)
+            ds=ds.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
     
         return(ds)
